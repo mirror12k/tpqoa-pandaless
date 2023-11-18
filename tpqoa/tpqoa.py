@@ -34,7 +34,7 @@ import signal
 import threading
 from time import sleep
 
-import pandas as pd
+# import pandas as pd
 import v20
 from v20.transaction import StopLossDetails, ClientExtensions
 from v20.transaction import TrailingStopLossDetails, TakeProfitDetails
@@ -156,8 +156,32 @@ class tpqoa(object):
     def transform_datetime(self, dati):
         ''' Transforms Python datetime object to string. '''
         if isinstance(dati, str):
+            import pandas as pd
             dati = pd.Timestamp(dati).to_pydatetime()
         return dati.isoformat('T') + self.suffix
+
+    def retrieve_data_raw(self, instrument, start, end, granularity, price):
+        raw = self.ctx.instrument.candles(
+            instrument=instrument,
+            fromTime=start, toTime=end,
+            granularity=granularity, price=price)
+        raw = raw.get('candles')
+        raw = [cs.dict() for cs in raw]
+        if price == 'A':
+            for cs in raw:
+                cs.update(cs['ask'])
+                del cs['ask']
+        elif price == 'B':
+            for cs in raw:
+                cs.update(cs['bid'])
+                del cs['bid']
+        elif price == 'M':
+            for cs in raw:
+                cs.update(cs['mid'])
+                del cs['mid']
+        else:
+            raise ValueError("Price must be either 'B', 'A' or 'M'.")
+        return raw
 
     def retrieve_data(self, instrument, start, end, granularity, price):
         raw = self.ctx.instrument.candles(
@@ -180,6 +204,7 @@ class tpqoa(object):
                 del cs['mid']
         else:
             raise ValueError("Price must be either 'B', 'A' or 'M'.")
+        import pandas as pd
         if len(raw) == 0:
             return pd.DataFrame()  # return empty DataFrame if no data
         data = pd.DataFrame(raw)
@@ -219,6 +244,7 @@ class tpqoa(object):
             else:
                 # freq = 'D'
                 freq = f"{int(MAX_REQUEST_COUNT * multiplier / float(1440))}D"
+            import pandas as pd
             data = pd.DataFrame()
             dr = pd.date_range(start, end, freq=freq)
 
